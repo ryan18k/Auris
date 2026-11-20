@@ -8,7 +8,10 @@
   // ---------------------------------------------------------------------------
   // Réglages
   // ---------------------------------------------------------------------------
-  const BLE_SERVICES = [0xfff0, 0xffe0, "e7810a71-73ae-499d-8c15-faa9aef0c3f2"];
+  // UUID au format complet (en minuscules) : Bluefy refuse les formes courtes numériques
+  const uuid16 = (n) => `0000${n.toString(16).padStart(4, "0")}-0000-1000-8000-00805f9b34fb`;
+  const SVC_OBDLINK = uuid16(0xfff0);
+  const BLE_SERVICES = [SVC_OBDLINK, uuid16(0xffe0), "e7810a71-73ae-499d-8c15-faa9aef0c3f2"];
   const BLE_CHUNK = 20;            // l'OBDLink CX refuse les écritures plus longues que le MTU négocié
   const SLOW_EVERY = 15;           // les requêtes « lentes » sont relues toutes les 15 boucles
   const DTC_EVERY = 100;           // codes défaut relus toutes les 100 boucles (≈ 4-5 min)
@@ -134,7 +137,7 @@
     async connect(acceptAll) {
       const opts = acceptAll
         ? { acceptAllDevices: true, optionalServices: BLE_SERVICES }
-        : { filters: [{ namePrefix: "OBDLink" }, { namePrefix: "OBD" }, { services: [0xfff0] }], optionalServices: BLE_SERVICES };
+        : { filters: [{ namePrefix: "OBDLink" }, { services: [SVC_OBDLINK] }], optionalServices: BLE_SERVICES };
       const dev = this.device && !acceptAll ? this.device : await navigator.bluetooth.requestDevice(opts);
       if (dev !== this.device) {
         dev.addEventListener("gattserverdisconnected", () => { log("Bluetooth déconnecté", "warn"); this.onDisconnect && this.onDisconnect(); });
@@ -599,7 +602,8 @@
       log(`Lecture de test : ${answered}/${REQUESTS.length} requêtes ont répondu`);
       setStatus(`Prêt — ${answered}/${REQUESTS.length} requêtes répondent`, "ok");
     } catch (e) {
-      log("Échec de connexion : " + e.message, "err");
+      log(`Échec de connexion : ${e.name} — ${e.message}`, "err");
+      if (e.name !== "NotFoundError") toast(`Connexion impossible : ${e.message}`);
       setStatus(e.name === "NotFoundError" ? "Aucun appareil choisi" : e.message, "err");
     }
     render();
